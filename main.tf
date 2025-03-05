@@ -1,4 +1,4 @@
-# main.tf - Patch Corp's insecure infrastructure blueprint with expanded vulnerabilities
+# Patch Corp's insecure infrastructure blueprint with expanded vulnerabilities
 
 provider "aws" {
   region = "us-east-1"
