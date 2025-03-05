@@ -23,7 +23,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          file: iac-jessica/main.tf
+          file: main.tf
 
       - name: Replace security-severity undefined for license-related findings 
         run: |
