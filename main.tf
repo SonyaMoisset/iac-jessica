@@ -10,7 +10,7 @@ provider "aws" {
 
 # Vulnerable EC2 instance using an outdated AMI (Critical)
 resource "aws_instance" "web" {
-  ami           = "ami-0abcdef1234567890"  # Outdated/insecure AMI
+  ami           = "ami-0abcdef1234567890"  # Outdated/insecure AMI (not covered)
   instance_type = "t2.micro"
   security_groups = [aws_security_group.open_sg.name]
 }
@@ -91,8 +91,8 @@ resource "aws_iam_policy" "vulnerable_policy" {
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": "*",  # Overly permissive actions
-      "Resource": "*"  # Applies to all resources
+      "Action": "*",  
+      "Resource": "*"
     }
   ]
 }
@@ -132,8 +132,8 @@ resource "aws_iam_policy" "lambda_policy" {
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": "*",  # Wildcard permissions
-      "Resource": "*"  # Applies to all resources
+      "Action": "*",
+      "Resource": "*"
     }
   ]
 }
@@ -154,14 +154,38 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attach" {
 resource "aws_db_instance" "insecure_db" {
   allocated_storage    = 20
   engine               = "mysql"
-  engine_version       = "5.6"  # Outdated engine version with known vulnerabilities
+  engine_version       = "5.6"  # Outdated engine version with known vulnerabilities (not covered)
   instance_class       = "db.t2.micro"
   username             = "admin"
-  password             = "plaintextpassword"  # Weak password stored in plain text
+  password             = "patch"  # Weak password stored in plain text (need to add a Rego custome rule here)
   publicly_accessible  = true   # Exposes the DB instance to the public internet
   skip_final_snapshot  = true
   storage_encrypted    = false  # Data not encrypted at rest
 }
+
+# package rules/ REGO RULE
+
+# deny[msg] {
+#   resource := input.resource.aws_db_instance[_]
+#   resource.password
+#   # Check if password is a literal string (i.e., not a computed reference)
+#   not is_reference(resource.password)
+#   msg := {
+#     "publicId": "CUSTOM-DB-PLAIN",
+#     "title": "Plaintext DB password detected",
+#     "severity": "critical",
+#     "msg": sprintf("Database instance %v uses a hardcoded password. Use a secure mechanism (e.g., AWS Secrets Manager) to manage credentials.", [resource.name]),
+#     "remediation": "Remove the hardcoded password from the configuration and reference a secret stored securely.",
+#     "references": []
+#   }
+# }
+
+# # Helper function to check if a value is a reference (this is an illustrative example)
+# is_reference(val) {
+#   # In a real rule, you might check if the value is not a simple string literal,
+#   # for example by testing its type or whether it contains interpolation markers.
+#   false
+# }
 
 ##############################
 # Serverless and Monitoring
@@ -187,7 +211,7 @@ resource "aws_lambda_function" "insecure_lambda" {
 # Insecure CloudWatch Log Group (High)
 resource "aws_cloudwatch_log_group" "insecure_logs" {
   name              = "/aws/lambda/insecureLambda"
-  retention_in_days = 0  # No retention period set, risking loss of log data
+  # retention_in_days = 0  # No retention period set, risking loss of log data (costs involved)
 }
 
 ##############################
@@ -206,7 +230,8 @@ resource "aws_elb" "insecure_elb" {
     lb_protocol       = "HTTP"
   }
 
-  cross_zone_load_balancing = true
-  connection_draining       = false  # Connection draining disabled
-  idle_timeout              = 30     # Short idle timeout may disrupt long-lived connections
+  cross_zone_load_balancing   = true
+  idle_timeout                = 400
+  connection_draining         = true
+  connection_draining_timeout = 400
 }
