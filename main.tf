@@ -1,7 +1,7 @@
 # Patch Corp's insecure infrastructure blueprint with expanded vulnerabilities
 
 provider "aws" {
-  region = "us-east-1"
+  region = "us-west-2 "
 }
 
 ##############################
