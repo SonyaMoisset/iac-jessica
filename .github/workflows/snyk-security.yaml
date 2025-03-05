@@ -1,0 +1,37 @@
+name: Snyk IaC Security
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security:
+    permissions:
+        security-events: write
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Run Snyk Iac scan
+      - name: Snyk IaC Scan
+        continue-on-error: true
+        uses: snyk/actions/iac@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          file: main.tf
+
+      - name: Replace security-severity undefined for license-related findings 
+        run: |
+          sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' snyk.sarif
+          sed -i 's/"security-severity": "null"/"security-severity": "0"/g' snyk.sarif
+
+      # Step 3: Upload result to GitHub Code Scanning
+      - name: Upload result to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif
